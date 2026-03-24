@@ -66,6 +66,17 @@ bool HomeContext::loop()
 
 void HomeContext::update()
 {
+  // if (_input.isPressed())
+  // {
+  //   _input.lock(CLICK_LOCK);
+  //   log_i("isPressed");
+  // }
+  // else if (_input.isHolded())
+  // {
+  //   log_i("isHolded");
+  // }
+  // else
+
   if (_input.isReleased())
   {
     openContextByID(ID_CONTEXT_MENU);
