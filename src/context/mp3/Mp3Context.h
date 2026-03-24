@@ -82,18 +82,10 @@ private:
   void up();
   void down();
 
-  void left();
-  void leftPressed();
-
-  void right();
-  void rightPressed();
-
-  void ok();
+  void click();
   void okPressed();
-  void changeBackLight();
 
   void back();
-  void backPressed();
 
   void showPlMenu();
   void hidePlMenu();

@@ -59,19 +59,19 @@ MenuContext::MenuContext()
   Label* files_lbl = WidgetCreator::getItemLabel(STR_FILES_ITEM, font_10x20);
   files_item->setLbl(files_lbl);
 
-  // // Музика
-  // MenuItem* mp3_item = WidgetCreator::getMenuItem(ID_CONTEXT_MP3);
-  // _menu->addItem(mp3_item);
+  // Музика
+  MenuItem* mp3_item = WidgetCreator::getMenuItem(ID_CONTEXT_MP3);
+  _menu->addItem(mp3_item);
 
-  // Image* mp3_img = new Image(1);
-  // mp3_item->setImg(mp3_img);
-  // mp3_img->setTransparency(true);
-  // mp3_img->setWidth(ICO_WH);
-  // mp3_img->setHeight(ICO_WH);
-  // mp3_img->setSrc(HEADPHONES_IMG);
+  Image* mp3_img = new Image(1);
+  mp3_item->setImg(mp3_img);
+  mp3_img->setTransparency(true);
+  mp3_img->setWidth(ICO_WH);
+  mp3_img->setHeight(ICO_WH);
+  mp3_img->setSrc(HEADPHONES_IMG);
 
-  // Label* mp3_lbl = WidgetCreator::getItemLabel(STR_MUSIC_ITEM, font_10x20);
-  // mp3_item->setLbl(mp3_lbl);
+  Label* mp3_lbl = WidgetCreator::getItemLabel(STR_MUSIC_ITEM, font_10x20);
+  mp3_item->setLbl(mp3_lbl);
 
   // // Читалка
   // MenuItem* read_item = WidgetCreator::getMenuItem(ID_CONTEXT_READER);

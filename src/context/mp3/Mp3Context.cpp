@@ -417,67 +417,43 @@ void Mp3Context::updateTrackPos()
 
 void Mp3Context::update()
 {
-  // if (_mode == MODE_SD_UNCONN)
-  // {
-  //   if (_input.isReleased(BtnID::BTN_BACK))
-  //   {
-  //     _input.lock(BtnID::BTN_BACK, CLICK_LOCK);
-  //     openContextByID(ID_CONTEXT_MENU);
-  //   }
+  ITouchscreen::Swipe swipe = _input.getSwipe();
 
-  //   return;
-  // }
+  if (_mode == MODE_SD_UNCONN)
+  {
+    if (swipe == ITouchscreen::SWIPE_L)
+    {
+      openContextByID(ID_CONTEXT_MENU);
+    }
 
-  // if (_input.isPressed(BtnID::BTN_RIGHT))
-  // {
-  //   _input.lock(BtnID::BTN_RIGHT, PRESS_LOCK);
-  //   rightPressed();
-  // }
-  // else if (_input.isPressed(BtnID::BTN_LEFT))
-  // {
-  //   _input.lock(BtnID::BTN_LEFT, PRESS_LOCK);
-  //   leftPressed();
-  // }
-  // else if (_input.isHolded(BtnID::BTN_UP))
-  // {
-  //   _input.lock(BtnID::BTN_UP, HOLD_LOCK);
-  //   up();
-  // }
-  // else if (_input.isHolded(BtnID::BTN_DOWN))
-  // {
-  //   _input.lock(BtnID::BTN_DOWN, HOLD_LOCK);
-  //   down();
-  // }
-  // else if (_input.isReleased(BtnID::BTN_RIGHT))
-  // {
-  //   _input.lock(BtnID::BTN_RIGHT, CLICK_LOCK);
-  //   right();
-  // }
-  // else if (_input.isReleased(BtnID::BTN_LEFT))
-  // {
-  //   _input.lock(BtnID::BTN_LEFT, CLICK_LOCK);
-  //   left();
-  // }
-  // else if (_input.isReleased(BtnID::BTN_OK))
-  // {
-  //   _input.lock(BtnID::BTN_OK, CLICK_LOCK);
-  //   ok();
-  // }
-  // else if (_input.isPressed(BtnID::BTN_OK))
-  // {
-  //   _input.lock(BtnID::BTN_OK, PRESS_LOCK);
-  //   okPressed();
-  // }
-  // else if (_input.isReleased(BtnID::BTN_BACK))
-  // {
-  //   _input.lock(BtnID::BTN_BACK, CLICK_LOCK);
-  //   back();
-  // }
-  // else if (_input.isPressed(BtnID::BTN_BACK))
-  // {
-  //   _input.lock(BtnID::BTN_BACK, PRESS_LOCK);
-  //   backPressed();
-  // }
+    return;
+  }
+
+  if (swipe == ITouchscreen::SWIPE_L)
+  {
+    _input.lock(CLICK_LOCK);
+    back();
+  }
+  else if (swipe == ITouchscreen::SWIPE_U)
+  {
+    _input.lock(CLICK_LOCK);
+    up();
+  }
+  else if (swipe == ITouchscreen::SWIPE_D)
+  {
+    _input.lock(CLICK_LOCK);
+    down();
+  }
+  else if (_input.isPressed())
+  {
+    _input.lock(PRESS_LOCK);
+    okPressed();
+  }
+  else if (_input.isReleased())
+  {
+    _input.lock(CLICK_LOCK);
+    click();
+  }
 
   if (_mode == MODE_AUDIO_PLAY)
   {
@@ -515,28 +491,6 @@ void Mp3Context::update()
 }
 
 //-------------------------------------------------------------------------------------------
-
-void Mp3Context::leftPressed()
-{
-  _audio.setTimeOffset(-20);
-}
-
-void Mp3Context::rightPressed()
-{
-  _audio.setTimeOffset(20);
-}
-
-void Mp3Context::left()
-{
-  if (_mode == MODE_AUDIO_PLAY)
-    playPrev();
-}
-
-void Mp3Context::right()
-{
-  if (_mode == MODE_AUDIO_PLAY)
-    playNext();
-}
 
 bool Mp3Context::playNext()
 {
@@ -747,7 +701,7 @@ void Mp3Context::down()
   }
 }
 
-void Mp3Context::ok()
+void Mp3Context::click()
 {
   if (_mode == MODE_PLST_SEL)
   {
@@ -778,19 +732,41 @@ void Mp3Context::ok()
   }
   else if (_mode == MODE_AUDIO_PLAY)
   {
-    if (_track_name != "")
+    if (!_track_name.equals(""))
     {
-      _audio.pauseResume();
+      uint16_t x = _input.getTouchX();
+      uint16_t y = _input.getTouchY();
 
-      if (_audio.isRunning())
+      IWidget* click_widget = getLayout()->getWidgetByPos(x, y);
+      if (!click_widget)
+        return;
+
+      uint16_t widget_id = click_widget->getID();
+
+      switch (widget_id)
       {
-        _play_btn->setSrc(PAUSE_IMG);
-        _is_playing = true;
-      }
-      else
-      {
-        _play_btn->setSrc(PLAY_IMG);
-        _is_playing = false;
+        case ID_PLAY_BTN:
+          _audio.pauseResume();
+
+          if (_audio.isRunning())
+          {
+            _play_btn->setSrc(PAUSE_IMG);
+            _is_playing = true;
+          }
+          else
+          {
+            _play_btn->setSrc(PLAY_IMG);
+            _is_playing = false;
+          }
+          break;
+        case ID_FORWARD_IMG:
+          playNext();
+          break;
+        case ID_REWIND_IMG:
+          playPrev();
+          break;
+        default:
+          break;
       }
     }
   }
@@ -894,40 +870,8 @@ void Mp3Context::onPrevItemsLoad(std::vector<MenuItem*>& items, uint8_t size, ui
 
 void Mp3Context::okPressed()
 {
-  if (_mode == MODE_AUDIO_PLAY)
-    changeBackLight();
-  else if (_mode == MODE_TRACK_SEL)
+  if (_mode == MODE_TRACK_SEL)
     showPlMenu();
-}
-
-void Mp3Context::changeBackLight()
-{
-  if (_is_locked)
-  {
-    _gui_enabled = true;
-
-    uint8_t ccpu_cmd_data[2]{CCPU_CMD_PIN_ON, CH_PIN_DISPLAY_PWR};
-    _ccpu.sendCmd(ccpu_cmd_data, sizeof(ccpu_cmd_data), 2);
-
-    // _input.enableBtn(BtnID::BTN_BACK); // TODO
-    // _input.enableBtn(BtnID::BTN_LEFT);
-    // _input.enableBtn(BtnID::BTN_RIGHT);
-
-    showPlaying();
-  }
-  else
-  {
-    _gui_enabled = false;
-
-    uint8_t ccpu_cmd_data[2]{CCPU_CMD_PIN_OFF, CH_PIN_DISPLAY_PWR};
-    _ccpu.sendCmd(ccpu_cmd_data, sizeof(ccpu_cmd_data), 2);
-
-    // _input.disableBtn(BtnID::BTN_BACK);
-    // _input.disableBtn(BtnID::BTN_LEFT);
-    // _input.disableBtn(BtnID::BTN_RIGHT);
-  }
-
-  _is_locked = !_is_locked;
 }
 
 void Mp3Context::back()
@@ -946,11 +890,7 @@ void Mp3Context::back()
   {
     hidePlMenu();
   }
-}
-
-void Mp3Context::backPressed()
-{
-  if (_mode == MODE_AUDIO_PLAY)
+  else if (_mode == MODE_AUDIO_PLAY)
   {
     _audio.stopSong();
     savePref();
