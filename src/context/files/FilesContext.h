@@ -132,6 +132,8 @@ private:
   void runServerInBg();
   void executeScript();
   void saveWallppSettings();
+  void loadSelectedItemText();
+  uint16_t getSelectedItemID();
 
 private:
   FileServer _server;
@@ -140,6 +142,7 @@ private:
   String _name_from;
   String _copy_to_path;
   String _old_name;
+  String _sel_item_text;
   std::vector<FileInfo> _files;
   std::vector<String> _breadcrumbs;
 
@@ -150,7 +153,6 @@ private:
   Image* _qr_img{nullptr};
   uint16_t* _qr_img_buff{nullptr};
   FixedMenu* _context_menu{nullptr};
-  ScrollBar* _scrollbar{nullptr};
   ProgressBar* _task_progress{nullptr};
   DynamicMenu* _files_list{nullptr};
   Image* _dir_img{nullptr};

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "pixeler/lib/audio/mp3/Audio.h"
-#include "pixeler/src/manager/SettingsManager.h"
 #include "pixeler/src/context/IContext.h"
+#include "pixeler/src/manager/SettingsManager.h"
 #include "pixeler/src/widget/image/Image.h"
 #include "pixeler/src/widget/menu/DynamicMenu.h"
 #include "pixeler/src/widget/menu/FixedMenu.h"
@@ -78,6 +78,7 @@ private:
 
   bool updateTrackDuration();
   void updateTrackTime();
+  void setTrackPosAt(uint16_t x, uint16_t y);
 
   void up();
   void down();
@@ -96,6 +97,10 @@ private:
   //
   void indexPlaylists();
   void indexTracks();
+
+  IWidget* getSelectedItem(IMenu* menu);
+  String getSelectedItemText(IMenu* menu);
+  uint16_t getSelectedItemID(IMenu* menu);
 
   String getTrackPath(const char* dirname, const char* track_name) const;
 
@@ -121,7 +126,6 @@ private:
   Label* _volume_lbl;
   ProgressBar* _progress;
   Label* _msg_lbl;
-  ScrollBar* _scrollbar;
   FixedMenu* _context_menu;
   DynamicMenu* _tracks_list;
   FixedMenu* _playlists_list;
@@ -129,6 +133,7 @@ private:
   unsigned long _upd_msg_time{0};
   int32_t _track_time{-1};
   uint16_t _track_pos{0};
+  uint16_t _track_item_id{0};
 
   Mode _mode{MODE_PLST_SEL};
 

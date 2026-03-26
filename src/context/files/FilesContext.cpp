@@ -194,19 +194,13 @@ void FilesContext::showFilesTmpl()
 
   _files_list = WidgetCreator::getDynamicMenu(ID_DYNAMIC_MENU);
   layout->addWidget(_files_list);
+  _files_list->setTouchSupport(true);
   _files_list->setHeight(TFT_HEIGHT - PADDING_BOTT);
   _files_list->setItemHeight((_files_list->getHeight() - 2) / MENU_ITEMS_NUM);
   _files_list->setWidth(TFT_WIDTH - SCROLLBAR_WIDTH);
 
   _files_list->setOnNextItemsLoadHandler(onNextItemsLoad, this);
   _files_list->setOnPrevItemsLoadHandler(onPrevItemsLoad, this);
-
-  _scrollbar = new ScrollBar(ID_SCROLLBAR);
-  layout->addWidget(_scrollbar);
-  _scrollbar->setWidth(SCROLLBAR_WIDTH);
-  _scrollbar->setHeight(TFT_HEIGHT - PADDING_BOTT);
-  _scrollbar->setPos(TFT_WIDTH - SCROLLBAR_WIDTH, 0);
-  _scrollbar->setBackColor(COLOR_MAIN_BACK);
 
   Label* size_title_lbl = new Label(ID_SIZE_TITLE_LBL);
   layout->addWidget(size_title_lbl);
@@ -252,9 +246,10 @@ void FilesContext::showContextMenu()
   _files_list->disable();
 
   _context_menu = new FixedMenu(ID_CNTXT_MENU);
+  _context_menu->setTouchSupport(true);
   getLayout()->addWidget(_context_menu);
-  _context_menu->setItemHeight(18);
-  _context_menu->setWidth((float)TFT_WIDTH / 2.2);
+  _context_menu->setItemHeight(25);
+  _context_menu->setWidth(TFT_WIDTH / 2);
   _context_menu->setBackColor(COLOR_BLACK);
   _context_menu->setBorder(true);
   _context_menu->setBorderColor(COLOR_ORANGE);
@@ -280,7 +275,7 @@ void FilesContext::showContextMenu()
   new_dir_lbl->setHPadding(1);
 
   // контекст для вибраного файлу
-  uint16_t id = _files_list->getCurrItemID();
+  uint16_t id = getSelectedItemID();
 
   if (id > 0)
   {
@@ -372,6 +367,7 @@ void FilesContext::showContextMenu()
   // Фоновий сервер
   ToggleItem* import_back_item = new ToggleItem(ID_ITEM_BACK_IMPORT);
   _context_menu->addItem(import_back_item);
+  import_back_item->setTouchable(true);
   import_back_item->setFocusBorderColor(COLOR_LIME);
   import_back_item->setFocusBackColor(COLOR_FOCUS_BACK);
   import_back_item->setBackColor(COLOR_MENU_ITEM);
@@ -385,8 +381,8 @@ void FilesContext::showContextMenu()
 
   ToggleSwitch* import_back_toggle = new ToggleSwitch(1);
   import_back_item->setToggle(import_back_toggle);
-  import_back_toggle->setWidth(30);
-  import_back_toggle->setHeight(_context_menu->getItemHeight() - 4);
+  import_back_toggle->setWidth(35);
+  import_back_toggle->setHeight(_context_menu->getItemHeight() - 8);
   import_back_toggle->setCornerRadius(4);
   import_back_toggle->setOn(_server.isWorking());
 
@@ -407,6 +403,12 @@ void FilesContext::showContextMenu()
 void FilesContext::hideContextMenu()
 {
   getLayout()->delWidgetByID(ID_CNTXT_MENU);
+
+  _file_size_lbl->setText("0");
+  _file_size_lbl->updateWidthToFit();
+  _file_pos_lbl->setText("[0/0]");
+  _file_pos_lbl->updateWidthToFit();
+
   _mode = MODE_NAVIGATION;
   _files_list->enable();
 }
@@ -430,7 +432,7 @@ void FilesContext::showDialog(Mode mode)
   _mode = mode;
   if (_mode == MODE_RENAME_DIALOG)
   {
-    _old_name = _files_list->getCurrItemText();
+    _old_name = _sel_item_text;
     _dialog_txt->setText(_old_name);
   }
 
@@ -482,7 +484,7 @@ void FilesContext::saveDialogResult()
 
 void FilesContext::handleKeyboardClick()
 {
-  IWidget* touch_widget = _keyboard->getWidgetByPos(_input.getTouchX(), _input.getTouchY());
+  IWidget* touch_widget = _keyboard->findTouchableAt(_input.getTouchX(), _input.getTouchY());
   if (!touch_widget || touch_widget->getTypeID() != IWidget::TYPE_LABEL)
     return;
 
@@ -494,8 +496,14 @@ void FilesContext::handleKeyboardClick()
 
 void FilesContext::prepareFileMoving()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   _path_from = makePathFromBreadcrumbs();
-  _name_from = _files_list->getCurrItemText();
+  _name_from = _sel_item_text;
 
   _has_moving_file = true;
   _has_copying_file = false;
@@ -505,8 +513,20 @@ void FilesContext::prepareFileMoving()
 
 void FilesContext::prepareFileCopying()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   _path_from = makePathFromBreadcrumbs();
-  _name_from = _files_list->getCurrItemText();
+  _name_from = _sel_item_text;
+
+  if (_name_from.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
 
   _has_moving_file = false;
   _has_copying_file = true;
@@ -558,9 +578,15 @@ void FilesContext::pasteFile()
 
 void FilesContext::removeFile()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   String filename = makePathFromBreadcrumbs();
   filename += "/";
-  filename += _files_list->getCurrItemText();
+  filename += _sel_item_text;
 
   if (!_fs.startRemoving(filename.c_str()))
   {
@@ -597,7 +623,11 @@ void FilesContext::update()
     _input.lock(PRESS_LOCK);
 
     if (_mode == MODE_NAVIGATION)
+    {
+      updateFileInfo();
+      loadSelectedItemText();
       showContextMenu();
+    }
     else if (_mode == MODE_NEW_DIR_DIALOG || _mode == MODE_RENAME_DIALOG)
       saveDialogResult();
   }
@@ -670,11 +700,18 @@ void FilesContext::ok()
 {
   if (_mode == MODE_NAVIGATION)
   {
+    loadSelectedItemText();
     openNextLevel();
   }
   else if (_mode == MODE_CONTEXT_MENU)
   {
-    uint16_t id = _context_menu->getCurrItemID();
+    uint16_t x = _input.getTouchX();
+    uint16_t y = _input.getTouchY();
+    IWidget* item = _context_menu->findTouchableAt(x, y);
+    if (!item)
+      return;
+
+    uint16_t id = item->getID();
 
     if (id == ID_ITEM_UPDATE)
     {
@@ -738,15 +775,7 @@ void FilesContext::up()
 {
   if (_mode == MODE_NAVIGATION)
   {
-    if (_files_list->focusUp())
-    {
-      updateFileInfo();
-      _scrollbar->scrollUp();
-    }
-  }
-  else if (_mode == MODE_CONTEXT_MENU)
-  {
-    _context_menu->focusUp();
+    _files_list->pageUp();
   }
 }
 
@@ -754,15 +783,7 @@ void FilesContext::down()
 {
   if (_mode == MODE_NAVIGATION)
   {
-    if (_files_list->focusDown())
-    {
-      updateFileInfo();
-      _scrollbar->scrollDown();
-    }
-  }
-  else if (_mode == MODE_CONTEXT_MENU)
-  {
-    _context_menu->focusDown();
+    _files_list->pageDown();
   }
   else if (_mode == MODE_NEW_DIR_DIALOG || _mode == MODE_RENAME_DIALOG)
   {
@@ -772,9 +793,15 @@ void FilesContext::down()
 
 void FilesContext::updateFileInfo()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   String filename = makePathFromBreadcrumbs();
   filename += "/";
-  filename += _files_list->getCurrItemText();
+  filename += _sel_item_text;
 
   String str_size;
   double f_size = _fs.getFileSize(filename.c_str());
@@ -799,7 +826,7 @@ void FilesContext::updateFileInfo()
   _file_size_lbl->updateWidthToFit();
 
   String pos = "[";
-  pos += String(_files_list->getCurrItemID());
+  pos += String(getSelectedItemID());
   pos += "/";
   pos += String(_files.size());
   pos += "]";
@@ -809,8 +836,14 @@ void FilesContext::updateFileInfo()
 
 void FilesContext::openNextLevel()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   String next_dir = "/";
-  next_dir += _files_list->getCurrItemText();
+  next_dir += _sel_item_text;
 
   String next_dir_path = makePathFromBreadcrumbs();
   next_dir_path += next_dir;
@@ -849,15 +882,10 @@ void FilesContext::fillFilesTmpl()
 
   std::vector<MenuItem*> items;
 
-  makeMenuFilesItems(items, 0, _files_list->getItemsNumOnScreen());
+  makeMenuFilesItems(items, 0, _files_list->getItemsPerPage());
 
   for (size_t i = 0; i < items.size(); ++i)
     _files_list->addItem(items[i]);
-
-  _scrollbar->setValue(0);
-  _scrollbar->setMax(_files.size());
-
-  updateFileInfo();
 }
 
 void FilesContext::startFileServer(FileServer::ServerMode mode, bool in_back)
@@ -989,8 +1017,6 @@ void FilesContext::handlePrevItemsLoad(std::vector<MenuItem*>& items, uint8_t si
   else
   {
     item_pos = 0;
-    // Вирівняти скролбар, якщо меню було завантажене не з першого елемента
-    _scrollbar->setValue(cur_id);
   }
 
   makeMenuFilesItems(items, item_pos, size);
@@ -1031,9 +1057,15 @@ void FilesContext::runServerInBg()
 
 void FilesContext::executeScript()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   String file_name = makePathFromBreadcrumbs();
   file_name += "/";
-  file_name += _files_list->getCurrItemText();
+  file_name += _sel_item_text;
 
   size_t f_size = _fs.getFileSize(file_name.c_str());
 
@@ -1081,14 +1113,59 @@ void FilesContext::executeScript()
 
 void FilesContext::saveWallppSettings()
 {
+  if (_sel_item_text.isEmpty())
+  {
+    _path_from = emptyString;
+    return;
+  }
+
   hideContextMenu();
 
   String path_to_bmp = makePathFromBreadcrumbs();
   path_to_bmp += "/";
-  path_to_bmp += _files_list->getCurrItemText();
+  path_to_bmp += _sel_item_text;
 
   if (!SettingsManager::set(STR_WALLPP_FILENAME, path_to_bmp.c_str()))
     showToast(STR_FAIL);
   else
     showToast(STR_SUCCESS);
+}
+
+void FilesContext::loadSelectedItemText()
+{
+  if (_files_list->getSize() == 0)
+  {
+    _sel_item_text = emptyString;
+    return;
+  }
+
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+
+  IWidget* raw_item = _files_list->findTouchableAt(x, y);
+
+  if (!raw_item)
+  {
+    _sel_item_text = emptyString;
+    return;
+  }
+
+  MenuItem* item = static_cast<MenuItem*>(raw_item);
+  _sel_item_text = item->getText();
+}
+
+uint16_t FilesContext::getSelectedItemID()
+{
+  if (_files_list->getSize() == 0)
+    return 0;
+
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+
+  IWidget* raw_item = _files_list->findTouchableAt(x, y);
+
+  if (!raw_item)
+    return 0;
+
+  return raw_item->getID();
 }

@@ -135,12 +135,13 @@ void Mp3Context::showPlaying()
 
   _progress = new ProgressBar(ID_PROGRESS);
   layout->addWidget(_progress);
+  _progress->setTouchable(true);
   _progress->setBackColor(COLOR_BLACK);
   _progress->setProgressColor(COLOR_ORANGE);
   _progress->setBorderColor(COLOR_WHITE);
   _progress->setMax(9999);
   _progress->setWidth(TFT_WIDTH);
-  _progress->setHeight(10);
+  _progress->setHeight(20);
   _progress->setProgress(1);
   _progress->setPos(0, TFT_HEIGHT - _progress->getHeight());
 
@@ -163,6 +164,7 @@ void Mp3Context::showPlaying()
 
   _play_btn = new Image(ID_PLAY_BTN);
   layout->addWidget(_play_btn);
+  _play_btn->setTouchable(true);
   _play_btn->setWidth(32);
   _play_btn->setHeight(32);
   _play_btn->setSrc(PAUSE_IMG);
@@ -172,6 +174,7 @@ void Mp3Context::showPlaying()
 
   Image* forward_img = new Image(ID_FORWARD_IMG);
   layout->addWidget(forward_img);
+  forward_img->setTouchable(true);
   forward_img->setWidth(24);
   forward_img->setHeight(24);
   forward_img->setSrc(FORWARD_IMG);
@@ -181,6 +184,7 @@ void Mp3Context::showPlaying()
 
   Image* rewind_img = new Image(ID_REWIND_IMG);
   layout->addWidget(rewind_img);
+  rewind_img->setTouchable(true);
   rewind_img->setWidth(24);
   rewind_img->setHeight(24);
   rewind_img->setSrc(REWIND_IMG);
@@ -234,12 +238,6 @@ void Mp3Context::showTracksTmpl()
   _tracks_list->setOnNextItemsLoadHandler(onNextItemsLoad, this);
   _tracks_list->setOnPrevItemsLoadHandler(onPrevItemsLoad, this);
 
-  _scrollbar = new ScrollBar(ID_SCROLL);
-  layout->addWidget(_scrollbar);
-  _scrollbar->setWidth(SCROLLBAR_WIDTH);
-  _scrollbar->setHeight(TFT_HEIGHT);
-  _scrollbar->setPos(TFT_WIDTH - SCROLLBAR_WIDTH, DISPLAY_PADDING);
-
   _mode = MODE_TRACK_SEL;
 
   setLayout(layout);
@@ -255,12 +253,6 @@ void Mp3Context::showPlaylistsTmpl()
   _playlists_list->setWidth(TFT_WIDTH - SCROLLBAR_WIDTH);
   _playlists_list->setHeight(TFT_HEIGHT);
   _playlists_list->setItemHeight((TFT_HEIGHT - 2) / PLAYLIST_ITEMS_NUM);
-
-  _scrollbar = new ScrollBar(ID_SCROLL);
-  layout->addWidget(_scrollbar);
-  _scrollbar->setWidth(SCROLLBAR_WIDTH);
-  _scrollbar->setHeight(TFT_HEIGHT);
-  _scrollbar->setPos(TFT_WIDTH - SCROLLBAR_WIDTH, DISPLAY_PADDING);
 
   if (!_track_name.isEmpty())
   {
@@ -285,9 +277,6 @@ void Mp3Context::fillPlaylists()
 
   for (size_t i = 0; i < size; ++i)
     _playlists_list->addItem(items[i]);
-
-  _scrollbar->setValue(0);
-  _scrollbar->setMax(_playlists_list->getSize());
 }
 
 void Mp3Context::makeMenuPlaylistsItems(std::vector<MenuItem*>& items)
@@ -320,15 +309,12 @@ void Mp3Context::fillTracks(uint16_t track_pos)
     --track_pos;
 
   std::vector<MenuItem*> items;
-  makeMenuTracksItems(items, track_pos, _tracks_list->getItemsNumOnScreen());
+  makeMenuTracksItems(items, track_pos, _tracks_list->getItemsPerPage());
 
   size_t items_size = items.size();
 
   for (size_t i = 0; i < items_size; ++i)
     _tracks_list->addItem(items[i]);
-
-  _scrollbar->setMax(pl_sz);
-  _scrollbar->setValue(track_pos);
 }
 
 void Mp3Context::makeMenuTracksItems(std::vector<MenuItem*>& items, uint16_t file_pos, uint8_t size)
@@ -362,6 +348,9 @@ void Mp3Context::makeMenuTracksItems(std::vector<MenuItem*>& items, uint16_t fil
 
 void Mp3Context::showPlMenu()
 {
+  if (_track_item_id == 0)
+    return;
+
   _tracks_list->disable();
 
   _context_menu = new FixedMenu(ID_PL_MENU);
@@ -374,14 +363,11 @@ void Mp3Context::showPlMenu()
   _context_menu->setHeight(44);
   _context_menu->setPos(TFT_WIDTH - _context_menu->getWidth(), TFT_HEIGHT - _context_menu->getHeight());
 
-  if (_tracks_list->getCurrItemID() != 0)
-  {
-    MenuItem* del_item = WidgetCreator::getMenuItem(ID_ITEM_DEL);
-    _context_menu->addItem(del_item);
+  MenuItem* del_item = WidgetCreator::getMenuItem(ID_ITEM_DEL);
+  _context_menu->addItem(del_item);
 
-    Label* upd_lbl = WidgetCreator::getItemLabel(STR_DELETE);
-    del_item->setLbl(upd_lbl);
-  }
+  Label* upd_lbl = WidgetCreator::getItemLabel(STR_DELETE);
+  del_item->setLbl(upd_lbl);
 
   _mode = MODE_PLST_MENU;
 }
@@ -657,17 +643,25 @@ void Mp3Context::updateTrackTime()
   _progress->setProgress(_track_time);
 }
 
+void Mp3Context::setTrackPosAt(uint16_t x, uint16_t y)
+{
+  uint32_t pos = _progress->getProgressAt(x, y);
+
+  if (pos == 0)
+    return;
+
+  _audio.setAudioPlayPosition(pos);
+}
+
 void Mp3Context::up()
 {
   if (_mode == MODE_PLST_SEL)
   {
-    _playlists_list->focusUp();
-    _scrollbar->scrollUp();
+    _playlists_list->pageUp();
   }
   else if (_mode == MODE_TRACK_SEL)
   {
-    _tracks_list->focusUp();
-    _scrollbar->scrollUp();
+    _tracks_list->pageUp();
   }
   else if (_mode == MODE_AUDIO_PLAY)
   {
@@ -675,7 +669,7 @@ void Mp3Context::up()
   }
   else if (_mode == MODE_PLST_MENU)
   {
-    _context_menu->focusUp();
+    _context_menu->pageUp();
   }
 }
 
@@ -683,13 +677,11 @@ void Mp3Context::down()
 {
   if (_mode == MODE_PLST_SEL)
   {
-    _playlists_list->focusDown();
-    _scrollbar->scrollDown();
+    _playlists_list->pageDown();
   }
   else if (_mode == MODE_TRACK_SEL)
   {
-    _tracks_list->focusDown();
-    _scrollbar->scrollDown();
+    _tracks_list->pageDown();
   }
   else if (_mode == MODE_AUDIO_PLAY)
   {
@@ -697,7 +689,7 @@ void Mp3Context::down()
   }
   else if (_mode == MODE_PLST_MENU)
   {
-    _context_menu->focusDown();
+    _context_menu->pageDown();
   }
 }
 
@@ -705,7 +697,7 @@ void Mp3Context::click()
 {
   if (_mode == MODE_PLST_SEL)
   {
-    uint16_t item_ID = _playlists_list->getCurrItemID();
+    uint16_t item_ID = getSelectedItemID(_playlists_list);
 
     if (item_ID == ID_CONT_ITEM)
     {
@@ -714,7 +706,7 @@ void Mp3Context::click()
     }
     else
     {
-      _playlist_name = _playlists_list->getCurrItemText();
+      _playlist_name = getSelectedItemText(_playlists_list);
       _track_pos = 0;
       indexTracks();
       showTracksTmpl();
@@ -725,8 +717,8 @@ void Mp3Context::click()
   {
     if (_tracks_list->getSize() > 0)
     {
-      _track_name = _tracks_list->getCurrItemText();
-      _track_pos = _tracks_list->getCurrItemID() - 1;
+      _track_name = getSelectedItemText(_tracks_list);
+      _track_pos = getSelectedItemID(_tracks_list) - 1;
       playTrack(false);
     }
   }
@@ -737,7 +729,7 @@ void Mp3Context::click()
       uint16_t x = _input.getTouchX();
       uint16_t y = _input.getTouchY();
 
-      IWidget* click_widget = getLayout()->getWidgetByPos(x, y);
+      IWidget* click_widget = getLayout()->findTouchableAt(x, y);
       if (!click_widget)
         return;
 
@@ -765,6 +757,9 @@ void Mp3Context::click()
         case ID_REWIND_IMG:
           playPrev();
           break;
+        case ID_PROGRESS:
+          setTrackPosAt(x, y);
+          break;
         default:
           break;
       }
@@ -772,11 +767,10 @@ void Mp3Context::click()
   }
   else if (_mode == MODE_PLST_MENU)
   {
-    uint16_t id = _context_menu->getCurrItemID();
+    uint16_t id = getSelectedItemID(_context_menu);
 
     if (id == ID_ITEM_DEL)
     {
-      _track_name = _tracks_list->getCurrItemText();
       if (_track_name.isEmpty())
         return;
 
@@ -784,8 +778,8 @@ void Mp3Context::click()
 
       if (_fs.rmFile(path_to_rem.c_str()))
       {
-        if (_tracks_list->getCurrItemID() - 2 > -1)
-          _track_pos = _tracks_list->getCurrItemID() - 2;
+        if (_track_item_id - 2 > -1)
+          _track_pos = _track_item_id - 2;
         else
           _track_pos = 0;
 
@@ -813,6 +807,39 @@ void Mp3Context::indexTracks()
   playlist_path += "/";
   playlist_path += _playlist_name;
   _fs.indexFilesExt(_tracks, playlist_path.c_str(), AUDIO_EXT);
+}
+
+IWidget* Mp3Context::getSelectedItem(IMenu* menu)
+{
+  if (!menu)
+    return nullptr;
+
+  if (menu->getSize() == 0)
+    return nullptr;
+
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+
+  return menu->findTouchableAt(x, y);
+}
+
+String Mp3Context::getSelectedItemText(IMenu* menu)
+{
+  IWidget* raw_item = getSelectedItem(menu);
+  if (!raw_item)
+    return emptyString;
+
+  MenuItem* item = static_cast<MenuItem*>(raw_item);
+  return item->getText();
+}
+
+uint16_t Mp3Context::getSelectedItemID(IMenu* menu)
+{
+  IWidget* raw_item = getSelectedItem(menu);
+  if (!raw_item)
+    return 0;
+
+  return raw_item->getID();
 }
 
 String Mp3Context::getTrackPath(const char* dirname, const char* track_name) const
@@ -856,7 +883,6 @@ void Mp3Context::handlePrevItemsLoad(std::vector<MenuItem*>& items, uint8_t size
   else
   {
     item_pos = 0;
-    _scrollbar->setValue(cur_id);
   }
 
   makeMenuTracksItems(items, item_pos, size);
@@ -871,7 +897,11 @@ void Mp3Context::onPrevItemsLoad(std::vector<MenuItem*>& items, uint8_t size, ui
 void Mp3Context::okPressed()
 {
   if (_mode == MODE_TRACK_SEL)
+  {
+    _track_name = getSelectedItemText(_tracks_list);
+    _track_item_id = getSelectedItemID(_tracks_list);
     showPlMenu();
+  }
 }
 
 void Mp3Context::back()

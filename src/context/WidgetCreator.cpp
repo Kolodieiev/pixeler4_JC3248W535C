@@ -29,6 +29,7 @@ MenuItem* WidgetCreator::getMenuItem(uint16_t id)
   item->setBackColor(COLOR_MENU_ITEM);
   item->setChangingBorder(true);
   item->setChangingBack(true);
+  item->setTouchable(true);
   return item;
 }
 
@@ -86,6 +87,7 @@ Keyboard* WidgetCreator::getStandardEnKeyboard(uint16_t id)
 
   Label* q = new Label(ID_KBTN_Q);
   q->setText("q");
+  q->setTouchable(true);
   q->setGravity(IWidget::GRAVITY_CENTER);
   q->setAlign(IWidget::ALIGN_CENTER);
   q->setChangingBorder(false);
@@ -291,6 +293,7 @@ Keyboard* WidgetCreator::getCapsdEnKeyboard(uint16_t id)
 
   Label* q = new Label(ID_KBTN_Q);
   q->setText("Q");
+  q->setTouchable(true);
   q->setGravity(IWidget::GRAVITY_CENTER);
   q->setAlign(IWidget::ALIGN_CENTER);
   q->setChangingBorder(false);

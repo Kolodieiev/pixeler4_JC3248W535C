@@ -26,9 +26,10 @@ private:
   FixedMenu* _menu;
   ScrollBar* _scrollbar;
 
-  static uint8_t _last_sel_item_pos;
-
   void up();
   void down();
   void ok();
+
+private:
+  static uint8_t _last_page_pos;
 };

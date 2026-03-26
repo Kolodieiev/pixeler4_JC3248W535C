@@ -102,6 +102,7 @@ void WiFiContext::showMainTmpl()
 
   _main_menu = new FixedMenu(ID_MAIN_MENU);
   layout->addWidget(_main_menu);
+  _main_menu->setTouchSupport(true);
   _main_menu->setWidth(TFT_WIDTH);
   _main_menu->setHeight(TFT_HEIGHT - DISPLAY_PADDING * 2);
   _main_menu->setPos(0, DISPLAY_PADDING);
@@ -111,6 +112,7 @@ void WiFiContext::showMainTmpl()
   // Add state item
   ToggleItem* wifi_state_item = new ToggleItem(ID_ITEM_WIFI_STATE);
   _main_menu->addItem(wifi_state_item);
+  wifi_state_item->setTouchable(true);
   wifi_state_item->setFocusBorderColor(COLOR_LIME);
   wifi_state_item->setFocusBackColor(COLOR_FOCUS_BACK);
   wifi_state_item->setChangingBorder(true);
@@ -190,11 +192,7 @@ void WiFiContext::up()
   }
   else if (_mode == MODE_MAIN)
   {
-    _main_menu->focusUp();
-  }
-  else if (_mode == MODE_CONTEXT_MENU)
-  {
-    _context_menu->focusUp();
+    _main_menu->pageUp();
   }
 }
 
@@ -206,11 +204,7 @@ void WiFiContext::down()
   }
   else if (_mode == MODE_MAIN)
   {
-    _main_menu->focusDown();
-  }
-  else if (_mode == MODE_CONTEXT_MENU)
-  {
-    _context_menu->focusDown();
+    _main_menu->pageDown();
   }
 }
 
@@ -222,7 +216,9 @@ void WiFiContext::ok()
   }
   else if (_mode == MODE_MAIN)
   {
-    uint16_t item_id = _main_menu->getCurrItemID();
+    loadSelectedItemText();
+
+    uint16_t item_id = getSelectedItemID(_main_menu);
 
     if (item_id == ID_ITEM_WIFI_STATE)
     {
@@ -253,15 +249,14 @@ void WiFiContext::ok()
         loadNetsList();
       }
     }
-    else if (item_id != ID_ITEM_CUR_NET)
+    else if (item_id != ID_ITEM_CUR_NET && !_sel_ssid.isEmpty())
     {
-      String ssid = _main_menu->getCurrItemText();
-      connectToNet(ssid);
+      connectToNet(_sel_ssid);
     }
   }
   else if (_mode == MODE_CONTEXT_MENU)
   {
-    uint16_t ctx_item_id = _context_menu->getCurrItemID();
+    uint16_t ctx_item_id = getSelectedItemID(_context_menu);
     if (ctx_item_id == ID_ITEM_DISCONN)
     {
       _wifi.disconnect();
@@ -274,7 +269,7 @@ void WiFiContext::ok()
     }
     else if (ctx_item_id == ID_ITEM_FORGET)
     {
-      String path_to_pwd = SettingsManager::getSettingsFilePath(_main_menu->getCurrItemText().c_str(), STR_WIFI_SUBDIR);
+      String path_to_pwd = SettingsManager::getSettingsFilePath(_sel_ssid.c_str(), STR_WIFI_SUBDIR);
       if (!_fs.rmFile(path_to_pwd.c_str()))
         showToast(STR_FAIL);
       else
@@ -305,7 +300,7 @@ void WiFiContext::back()
 
 void WiFiContext::showContextMenuTmpl()
 {
-  uint16_t item_id = _main_menu->getCurrItemID();
+  uint16_t item_id = getSelectedItemID(_main_menu);
   if (item_id == ID_ITEM_WIFI_STATE)
     return;
 
@@ -332,7 +327,7 @@ void WiFiContext::showContextMenuTmpl()
     disconn_item->setLbl(disconn_lbl);
   }
 
-  String wifi_pass = SettingsManager::get(_main_menu->getCurrItemText().c_str(), STR_WIFI_SUBDIR);
+  String wifi_pass = SettingsManager::get(_sel_ssid.c_str(), STR_WIFI_SUBDIR);
 
   if (!wifi_pass.isEmpty())
   {
@@ -359,12 +354,51 @@ void WiFiContext::showContextMenuTmpl()
 
 void WiFiContext::handleKeyboardClick()
 {
-  IWidget* touch_widget = _keyboard->getWidgetByPos(_input.getTouchX(), _input.getTouchY());
-  if (!touch_widget || touch_widget->getTypeID() != IWidget::TYPE_LABEL)
+  IWidget* touch_widget = _keyboard->findTouchableAt(_input.getTouchX(), _input.getTouchY());
+  if (!touch_widget)
     return;
 
   Label* btn = static_cast<Label*>(touch_widget);
   _pwd_txt->addChars(btn->getText().c_str());
+}
+
+void WiFiContext::loadSelectedItemText()
+{
+  if (_main_menu->getSize() == 0)
+  {
+    _sel_ssid = emptyString;
+    return;
+  }
+
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+
+  IWidget* raw_item = _main_menu->findTouchableAt(x, y);
+
+  if (!raw_item)
+  {
+    _sel_ssid = emptyString;
+    return;
+  }
+
+  MenuItem* item = static_cast<MenuItem*>(raw_item);
+  _sel_ssid = item->getText();
+}
+
+uint16_t WiFiContext::getSelectedItemID(IMenu* menu)
+{
+  if (menu->getSize() == 0)
+    return 0;
+
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+
+  IWidget* raw_item = menu->findTouchableAt(x, y);
+
+  if (!raw_item)
+    return 0;
+
+  return raw_item->getID();
 }
 
 void WiFiContext::hideContextMenu()
@@ -482,7 +516,6 @@ void WiFiContext::connectToNet(const String& ssid)
 
   if (wifi_pass.isEmpty())
   {
-    _sel_ssid = _main_menu->getCurrItemText();
     showEnterPwdTmpl();
   }
   else

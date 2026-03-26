@@ -22,7 +22,7 @@ const char STR_GAME_ITEM[] = "Ігри";
 const char STR_WIFI_ITEM[] = "Підключення";
 const char STR_FIRMWARE_ITEM[] = "Прошивка";
 
-uint8_t MenuContext::_last_sel_item_pos;
+uint8_t MenuContext::_last_page_pos;
 
 MenuContext::MenuContext()
 {
@@ -32,6 +32,7 @@ MenuContext::MenuContext()
   //
   _menu = new FixedMenu(ID_MENU);
   layout->addWidget(_menu);
+  _menu->setTouchSupport(true);
   _menu->setBackColor(COLOR_MAIN_BACK);
   _menu->setWidth(TFT_WIDTH - SCROLLBAR_WIDTH - DISPLAY_PADDING * 2);
   _menu->setHeight(TFT_HEIGHT - DISPLAY_PADDING * 2);
@@ -73,19 +74,33 @@ MenuContext::MenuContext()
   Label* mp3_lbl = WidgetCreator::getItemLabel(STR_MUSIC_ITEM, font_10x20);
   mp3_item->setLbl(mp3_lbl);
 
-  // // Читалка
-  // MenuItem* read_item = WidgetCreator::getMenuItem(ID_CONTEXT_READER);
-  // _menu->addItem(read_item);
+  // Ігри
+  MenuItem* game_item = WidgetCreator::getMenuItem(ID_CONTEXT_GAMES);
+  _menu->addItem(game_item);
 
-  // Image* read_img = new Image(1);
-  // read_item->setImg(read_img);
-  // read_img->setTransparency(true);
-  // read_img->setWidth(ICO_WH);
-  // read_img->setHeight(ICO_WH);
-  // read_img->setSrc(BOOK_IMG);
+  Image* game_img = new Image(1);
+  game_item->setImg(game_img);
+  game_img->setTransparency(true);
+  game_img->setWidth(ICO_WH);
+  game_img->setHeight(ICO_WH);
+  game_img->setSrc(JOYSTICK_IMG);
 
-  // Label* read_lbl = WidgetCreator::getItemLabel(STR_READER_ITEM, font_10x20);
-  // read_item->setLbl(read_lbl);
+  Label* game_lbl = WidgetCreator::getItemLabel(STR_GAME_ITEM, font_10x20);
+  game_item->setLbl(game_lbl);
+
+  // Читалка
+  MenuItem* read_item = WidgetCreator::getMenuItem(ID_CONTEXT_READER);
+  _menu->addItem(read_item);
+
+  Image* read_img = new Image(1);
+  read_item->setImg(read_img);
+  read_img->setTransparency(true);
+  read_img->setWidth(ICO_WH);
+  read_img->setHeight(ICO_WH);
+  read_img->setSrc(BOOK_IMG);
+
+  Label* read_lbl = WidgetCreator::getItemLabel(STR_READER_ITEM, font_10x20);
+  read_item->setLbl(read_lbl);
 
   // WiFi
   MenuItem* wifi_item = WidgetCreator::getMenuItem(ID_CONTEXT_WIFI);
@@ -101,25 +116,38 @@ MenuContext::MenuContext()
   Label* wifi_lbl = WidgetCreator::getItemLabel(STR_WIFI_ITEM, font_10x20);
   wifi_item->setLbl(wifi_lbl);
 
-  // // Налаштування
-  // MenuItem* pref_item = WidgetCreator::getMenuItem(ID_CONTEXT_PREF_SEL);
-  // _menu->addItem(pref_item);
+  // Налаштування
+  MenuItem* pref_item = WidgetCreator::getMenuItem(ID_CONTEXT_PREF_SEL);
+  _menu->addItem(pref_item);
 
-  // Image* pref_img = new Image(1);
-  // pref_item->setImg(pref_img);
-  // pref_img->setTransparency(true);
-  // pref_img->setWidth(ICO_WH);
-  // pref_img->setHeight(ICO_WH);
-  // pref_img->setSrc(SETTINGS_IMG);
+  Image* pref_img = new Image(1);
+  pref_item->setImg(pref_img);
+  pref_img->setTransparency(true);
+  pref_img->setWidth(ICO_WH);
+  pref_img->setHeight(ICO_WH);
+  pref_img->setSrc(SETTINGS_IMG);
 
-  // Label* pref_lbl = WidgetCreator::getItemLabel(STR_PREFERENCES, font_10x20);
-  // pref_item->setLbl(pref_lbl);
+  Label* pref_lbl = WidgetCreator::getItemLabel(STR_PREFERENCES, font_10x20);
+  pref_item->setLbl(pref_lbl);
 
+  // Прошивка
+  MenuItem* firm_item = WidgetCreator::getMenuItem(ID_CONTEXT_FIRMWARE);
+  _menu->addItem(firm_item);
+
+  Image* firm_img = new Image(1);
+  firm_item->setImg(firm_img);
+  firm_img->setTransparency(true);
+  firm_img->setWidth(ICO_WH);
+  firm_img->setHeight(ICO_WH);
+  firm_img->setSrc(CHIP_IMG);
+
+  Label* firm_lbl = WidgetCreator::getItemLabel(STR_FIRMWARE_ITEM, font_10x20);
+  firm_item->setLbl(firm_lbl);
   //
-  _scrollbar->setMax(_menu->getSize());
+  _scrollbar->setMax(_menu->getPagesCount());
 
-  _menu->setCurrFocusPos(_last_sel_item_pos);
-  _scrollbar->setValue(_last_sel_item_pos);
+  _menu->setPageNum(_last_page_pos);
+  _scrollbar->setValue(_last_page_pos);
 }
 
 MenuContext::~MenuContext()
@@ -137,7 +165,7 @@ void MenuContext::update()
 
   if (swipe == ITouchscreen::SWIPE_L)
   {
-    _last_sel_item_pos = 0;
+    _last_page_pos = 0;
     openContextByID(ID_CONTEXT_HOME);
   }
   else if (swipe == ITouchscreen::SWIPE_U)
@@ -159,19 +187,30 @@ void MenuContext::update()
 
 void MenuContext::up()
 {
-  _menu->focusUp();
-  _scrollbar->scrollUp();
+  _menu->pageUp();
+  _scrollbar->setValue(_menu->getPageNum());
 }
 
 void MenuContext::down()
 {
-  _menu->focusDown();
-  _scrollbar->scrollDown();
+  _menu->pageDown();
+  _scrollbar->setValue(_menu->getPageNum());
 }
 
 void MenuContext::ok()
 {
-  uint16_t id = _menu->getCurrItemID();
-  _last_sel_item_pos = _menu->getCurrFocusPos();
-  openContextByID((ContextID)id);
+  uint16_t x = _input.getTouchX();
+  uint16_t y = _input.getTouchY();
+  IWidget* menu_item = _menu->findTouchableAt(x, y);
+  if (!menu_item)
+    return;
+
+  _last_page_pos = _menu->getPageNum();
+
+  uint16_t item_id = menu_item->getID();
+
+  if (item_id != ID_CONTEXT_MP3 && item_id != ID_CONTEXT_FILES && item_id != ID_CONTEXT_WIFI)
+    return;
+
+  openContextByID((ContextID)item_id);
 }
